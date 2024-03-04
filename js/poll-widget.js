@@ -2,63 +2,64 @@ import {delegate} from "./utils";
 import {pollQuestionsLibrary} from "./constants.js";
 import '../css/style.css'
 
-(function () {
-    document.addEventListener('DOMContentLoaded', function () {
-        const {pollResultsKey, hardcodedPollQuestions} = getHardcodedPollQuestions();
+document.addEventListener('DOMContentLoaded', function () {
+    const {pollResultsKey, hardcodedPollQuestions} = getHardcodedPollQuestions();
 
-        if (!hardcodedPollQuestions) {
-            console.warn('Poll questions not available.');
-            return
-        }
+    if (!hardcodedPollQuestions) {
+        console.warn('Poll questions not available.');
+        return
+    }
 
-        const pollQuestionsFromStorage = JSON.parse(localStorage.getItem(pollResultsKey)) || hardcodedPollQuestions;
-        const copyOfPollQuestions = [...pollQuestionsFromStorage];
-        const pollContainer = document.getElementById("poll-container");
+    const pollQuestionsFromStorage = JSON.parse(localStorage.getItem(pollResultsKey)) || hardcodedPollQuestions;
+    const copyOfPollQuestions = [...pollQuestionsFromStorage];
+    const pollContainer = document.getElementById("poll-container");
 
-        pollQuestionsFromStorage.forEach(questionData => {
-            const pollElement = createPollElement(questionData);
-            pollContainer.appendChild(pollElement);
-        });
+    pollQuestionsFromStorage.forEach(questionData => {
+        const pollElement = createPollElement(questionData);
+        pollContainer.appendChild(pollElement);
+    });
 
-        handlePollOptionClick(pollQuestionsFromStorage, copyOfPollQuestions, pollResultsKey);
+    delegate('click', '.option', function (e) {
+        handlePollOptionClick(e, pollQuestionsFromStorage, copyOfPollQuestions, pollResultsKey);
     })
+})
 
-    function getHardcodedPollQuestions() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const pollId = urlParams.get("pollId");
-        const pollResultsKey = `poll-results-${pollId}`;
-        const hardcodedPollQuestions = pollQuestionsLibrary[pollId];
+export function getHardcodedPollQuestions() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const pollId = urlParams.get("pollId");
+    const pollResultsKey = `poll-results-${pollId}`;
+    const hardcodedPollQuestions = pollQuestionsLibrary[pollId];
 
-        return {pollResultsKey, hardcodedPollQuestions};
+    return {pollResultsKey, hardcodedPollQuestions};
+}
+
+export function createPollElement(questionData) {
+    const {options, id, name, totalVotes, question, description} = questionData;
+    const pollElement = document.createElement("div");
+
+    pollElement.classList.add("poll");
+    pollElement.setAttribute("question-id", id);
+
+    let innerHTML = `<h2>${question}</h2>`;
+    if (description) {
+        innerHTML += `<p class="description">${description}</p>`;
     }
 
-    function createPollElement(questionData) {
-        const {options, id, name, totalVotes, question, description} = questionData;
-        const pollElement = document.createElement("div");
+    const optionsHTML = options
+        .map(option => createOption(option, totalVotes, name))
+        .join("");
+    innerHTML += `<div class="options-container">${optionsHTML}</div>`;
+    innerHTML += `<p class="total-votes">Total Votes: ${totalVotes}</p>`;
 
-        pollElement.classList.add("poll");
-        pollElement.setAttribute("question-id", id);
+    pollElement.innerHTML = innerHTML;
 
-        let innerHTML = `<h2>${question}</h2>`;
-        if (description) {
-            innerHTML += `<p class="description">${description}</p>`;
-        }
+    return pollElement;
+}
 
-        const optionsHTML = options
-            .map(option => createOption(option, totalVotes, name))
-            .join("");
-        innerHTML += `<div class="options-container">${optionsHTML}</div>`;
-        innerHTML += `<p class="total-votes">Total Votes: ${totalVotes}</p>`;
+export function createOption(option, totalVotes, name) {
+    const votePercentage = Math.round((option.votes / totalVotes) * 100) || 0;
 
-        pollElement.innerHTML = innerHTML;
-
-        return pollElement;
-    }
-
-    function createOption(option, totalVotes, name) {
-        const votePercentage = Math.round((option.votes / totalVotes) * 100) || 0;
-
-        return `
+    return `
         <label class="option-wrapper">
             <input type="radio" name="${name}" value="${option.value}" required>
             <div class="option">
@@ -73,42 +74,39 @@ import '../css/style.css'
             </div>
         </label>
     `;
-    }
+}
 
-    function handlePollOptionClick(pollQuestionsFromStorage, copyOfPollQuestions, pollResultsKey) {
-        delegate('click', '.option', function (e) {
-            const radio = e.target.closest('.option-wrapper').querySelector('input')
-            const poll = e.target.closest('.poll')
-            const totalVotesEle = poll.querySelector('.total-votes')
-            const questionId = parseInt(poll.getAttribute('question-id'), 10)
+export function handlePollOptionClick(e, pollQuestionsFromStorage, copyOfPollQuestions, pollResultsKey) {
+    const radio = e.target.closest('.option-wrapper').querySelector('input')
+    const poll = e.target.closest('.poll')
+    const totalVotesEle = poll.querySelector('.total-votes')
+    const questionId = parseInt(poll.getAttribute('question-id'), 10)
 
-            pollQuestionsFromStorage.forEach((question, index) => {
-                if (question.id === questionId) {
-                    const totalVotes = question.totalVotes + 1
+    pollQuestionsFromStorage.forEach((question, index) => {
+        if (question.id === questionId) {
+            const totalVotes = question.totalVotes + 1
 
-                    const options = question.options.map((option) => {
-                        const optionWrapperEle = poll.querySelector(`input[value='${option.value}']`).closest('.option-wrapper')
-                        const numberOfVotesEle = optionWrapperEle.querySelector('.number-of-votes')
-                        const rangePercentEle = optionWrapperEle.querySelector('.range-percent')
-                        const rangePercentTextEle = optionWrapperEle.querySelector('.range-percent-text')
+            const options = question.options.map((option) => {
+                const optionWrapperEle = poll.querySelector(`input[value='${option.value}']`).closest('.option-wrapper')
+                const numberOfVotesEle = optionWrapperEle.querySelector('.number-of-votes')
+                const rangePercentEle = optionWrapperEle.querySelector('.range-percent')
+                const rangePercentTextEle = optionWrapperEle.querySelector('.range-percent-text')
 
-                        const votes = (option.value === radio.value) ? option.votes + 1 : option.votes;
-                        const votePercentage = Math.round((votes / totalVotes) * 100) || 0;
+                const votes = (option.value === radio.value) ? option.votes + 1 : option.votes;
+                const votePercentage = Math.round((votes / totalVotes) * 100) || 0;
 
-                        numberOfVotesEle.textContent = `${votes} votes`
-                        rangePercentTextEle.textContent = `${votePercentage}%`
-                        rangePercentEle.style.width = `${votePercentage}%`
+                numberOfVotesEle.textContent = `${votes} votes`
+                rangePercentTextEle.textContent = `${votePercentage}%`
+                rangePercentEle.style.width = `${votePercentage}%`
 
-                        return {...option, votes}
-                    })
-
-                    totalVotesEle.textContent = `Total Votes: ${totalVotes}`
-
-                    copyOfPollQuestions[index] = {...question, options, totalVotes}
-                }
+                return {...option, votes}
             })
 
-            localStorage.setItem(pollResultsKey, JSON.stringify(copyOfPollQuestions))
-        })
-    }
-})()
+            totalVotesEle.textContent = `Total Votes: ${totalVotes}`
+
+            copyOfPollQuestions[index] = {...question, options, totalVotes}
+        }
+    })
+
+    localStorage.setItem(pollResultsKey, JSON.stringify(copyOfPollQuestions))
+}
